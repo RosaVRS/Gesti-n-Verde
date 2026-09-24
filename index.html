@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      (function () {
+        try {
+          var _f = window.fetch;
+          Object.defineProperty(window, 'fetch', {
+            get: function () {
+              return _f;
+            },
+            set: function (fn) {
+              _f = fn;
+            },
+            configurable: true,
+            enumerable: true,
+          });
+        } catch (e) {
+          try {
+            var proto = Object.getPrototypeOf(window);
+            if (proto) {
+              var _pf = proto.fetch;
+              Object.defineProperty(proto, 'fetch', {
+                get: function () {
+                  return _pf;
+                },
+                set: function (fn) {
+                  _pf = fn;
+                },
+                configurable: true,
+                enumerable: true,
+              });
+            }
+          } catch (err) {}
+        }
+      })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestión Verde - Monitoreo Ambiental Escolar e IoT</title>
+    <meta name="description" content="Plataforma de Gestión Ambiental Educativa compatible con ISO 14001 y Eco-Schools con telemetría ambiental general y control de consumos." />
+    <meta property="og:title" content="Gestión Verde - Monitoreo Ambiental Escolar e IoT" />
+    <meta property="og:description" content="Plataforma de Gestión Ambiental Educativa compatible con ISO 14001 y Eco-Schools con telemetría ambiental general y control de consumos." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-slate-950 text-slate-100 antialiased font-sans">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

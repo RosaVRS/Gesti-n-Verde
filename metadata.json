@@ -1,0 +1,6 @@
+{
+  "name": "Gestión Verde - Monitoreo Ambiental Escolar e IoT",
+  "description": "Plataforma de Gestión Ambiental Educativa compatible con ISO 14001 y Eco-Schools con telemetría ambiental general y control de consumos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
