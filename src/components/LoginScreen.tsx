@@ -62,9 +62,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           <h1 className="text-2xl font-bold tracking-tight text-white font-sans">
             Gestión Verde para Escuelas
           </h1>
-          <p className="text-xs text-emerald-100/80 mt-1.5 font-medium">
-            Plataforma de Auditoría Ambiental y Certificación Escolar
-          </p>
         </div>
 
         {/* Formulario de Inicio de Sesión */}
