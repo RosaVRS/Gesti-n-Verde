@@ -4,11 +4,16 @@ import { DashboardView } from './components/DashboardView';
 import { CargarLecturasView } from './components/CargarLecturasView';
 import { DatosPlantelView } from './components/DatosPlantelView';
 import { PdfReportModal } from './components/PdfReportModal';
+import { LoginScreen } from './components/LoginScreen';
+import { PerfilUsuarioModal } from './components/PerfilUsuarioModal';
+import { EstandaresModal } from './components/EstandaresModal';
 import {
   INITIAL_PLANTEL,
   INITIAL_HISTORICO,
   INITIAL_DESECHOS,
   INITIAL_SENSOR,
+  INITIAL_LEED_PRERREQUISITOS,
+  INITIAL_ECO_SCHOOLS_CHECKLIST,
   ejecutarMotorInferencia
 } from './utils/rulesEngine';
 import {
@@ -17,16 +22,39 @@ import {
   HistoricoMes,
   ConsumoRecurso,
   RegistroDesecho,
-  LecturaSensorAmbiental
+  LecturaSensorAmbiental,
+  EstandarEvaluacion,
+  LeedPrerrequisitos,
+  EcoSchoolsChecklistItem,
+  UsuarioSesion
 } from './types';
 import { Menu, Leaf } from 'lucide-react';
 
 export default function App() {
+  // Autenticación Real: Admin / 123 y Superv / 123
+  const [currentUser, setCurrentUser] = useState<UsuarioSesion | null>(() => {
+    try {
+      const saved = sessionStorage.getItem('eco_user_session');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null; // Muestra la pantalla de login real por defecto
+  });
+
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [isPerfilModalOpen, setIsPerfilModalOpen] = useState(false);
+  const [isEstandaresModalOpen, setIsEstandaresModalOpen] = useState(false);
 
-  // App core state basado en el Capítulo III (González & González, 2026)
+  // Estándar configurado en el perfil del usuario activo
+  const [estandarActivo, setEstandarActivo] = useState<EstandarEvaluacion>(() => {
+    return currentUser?.estandarSeleccionado || 'LEED';
+  });
+
+  const [leedPrerrequisitos, setLeedPrerrequisitos] = useState<LeedPrerrequisitos>(INITIAL_LEED_PRERREQUISITOS);
+  const [ecoChecklist, setEcoChecklist] = useState<EcoSchoolsChecklistItem[]>(INITIAL_ECO_SCHOOLS_CHECKLIST);
+
+  // App core state
   const [plantel, setPlantel] = useState<PlantelConfig>(INITIAL_PLANTEL);
   const [historico, setHistorico] = useState<HistoricoMes[]>(INITIAL_HISTORICO);
   const [desechos, setDesechos] = useState<RegistroDesecho[]>(INITIAL_DESECHOS);
@@ -40,8 +68,8 @@ export default function App() {
       unidad: 'm³',
       periodo: '2026-07',
       fecha_registro: '2026-07-28T09:00:00Z',
-      registrado_por: 'Coordinador de Servicios Operacionales y Mantenimiento',
-      cargo_responsable: 'COORDINADOR',
+      registrado_por: 'Administrador (Admin)',
+      cargo_responsable: 'ADMINISTRADOR',
       costo_estimado: 2232.0,
       notas: 'Lectura regular de medidor de agua potable (Caso de Estudio)'
     },
@@ -52,8 +80,8 @@ export default function App() {
       unidad: 'kWh',
       periodo: '2026-07',
       fecha_registro: '2026-07-28T09:30:00Z',
-      registrado_por: 'Coordinador de Servicios Operacionales y Mantenimiento',
-      cargo_responsable: 'COORDINADOR',
+      registrado_por: 'Administrador (Admin)',
+      cargo_responsable: 'ADMINISTRADOR',
       costo_estimado: 3067.2,
       notas: 'Lectura mensual de acometida eléctrica principal'
     },
@@ -64,8 +92,8 @@ export default function App() {
       unidad: 'm³',
       periodo: '2026-06',
       fecha_registro: '2026-06-28T09:00:00Z',
-      registrado_por: 'Usuario Final (Personal Administrativo)',
-      cargo_responsable: 'USUARIO_FINAL',
+      registrado_por: 'Supervisor (Superv)',
+      cargo_responsable: 'SUPERVISOR',
       costo_estimado: 2250.0
     },
     {
@@ -75,16 +103,55 @@ export default function App() {
       unidad: 'kWh',
       periodo: '2026-06',
       fecha_registro: '2026-06-28T09:30:00Z',
-      registrado_por: 'Usuario Final (Personal Administrativo)',
-      cargo_responsable: 'USUARIO_FINAL',
+      registrado_por: 'Supervisor (Superv)',
+      cargo_responsable: 'SUPERVISOR',
       costo_estimado: 3067.2
     }
   ]);
 
-  // Recalcular inferencia lógica con el Sistema Experto (Librería Experta)
+  // Recalcular inferencia lógica con el Sistema Experto y Huella de Carbono
   const { indicadores, reglas, diagnosticos } = useMemo(() => {
-    return ejecutarMotorInferencia(plantel, historico, desechos, sensor);
-  }, [plantel, historico, desechos, sensor]);
+    return ejecutarMotorInferencia(
+      plantel,
+      historico,
+      desechos,
+      sensor,
+      estandarActivo,
+      leedPrerrequisitos,
+      ecoChecklist
+    );
+  }, [plantel, historico, desechos, sensor, estandarActivo, leedPrerrequisitos, ecoChecklist]);
+
+  // Handlers de Sesión
+  const handleLoginSuccess = (user: UsuarioSesion) => {
+    setCurrentUser(user);
+    setEstandarActivo(user.estandarSeleccionado);
+    try {
+      sessionStorage.setItem('eco_user_session', JSON.stringify(user));
+    } catch (e) {}
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    try {
+      sessionStorage.removeItem('eco_user_session');
+    } catch (e) {}
+    setIsPerfilModalOpen(false);
+  };
+
+  const handleUpdateEstandarEnPerfil = (nuevoEstandar: EstandarEvaluacion) => {
+    setEstandarActivo(nuevoEstandar);
+    if (currentUser) {
+      const updatedUser: UsuarioSesion = {
+        ...currentUser,
+        estandarSeleccionado: nuevoEstandar
+      };
+      setCurrentUser(updatedUser);
+      try {
+        sessionStorage.setItem('eco_user_session', JSON.stringify(updatedUser));
+      } catch (e) {}
+    }
+  };
 
   // Handlers para agregar consumos y desechos
   const handleAddConsumo = (nuevo: Omit<ConsumoRecurso, 'id' | 'fecha_registro'>) => {
@@ -95,7 +162,6 @@ export default function App() {
     };
     setConsumos((prev) => [item, ...prev]);
 
-    // Recalcular variable matemática clave por alumno (pág. 11)
     const perAlumno = nuevo.tipo_recurso === 'AGUA'
       ? Math.round((nuevo.valor * 1000) / plantel.poblacionEstudiantil)
       : parseFloat((nuevo.valor / plantel.poblacionEstudiantil).toFixed(1));
@@ -158,16 +224,42 @@ export default function App() {
     setHistorico(INITIAL_HISTORICO);
     setDesechos(INITIAL_DESECHOS);
     setSensor(INITIAL_SENSOR);
+    setEstandarActivo('LEED');
+    setLeedPrerrequisitos(INITIAL_LEED_PRERREQUISITOS);
+    setEcoChecklist(INITIAL_ECO_SCHOOLS_CHECKLIST);
   };
+
+  const handleToggleLeedAreaReciclaje = () => {
+    setLeedPrerrequisitos((prev) => ({
+      ...prev,
+      areaReciclajeConstruida: !prev.areaReciclajeConstruida
+    }));
+  };
+
+  const handleToggleEcoChecklistItem = (id: string) => {
+    setEcoChecklist((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, completado: !item.completado } : item
+      )
+    );
+  };
+
+  // Si no hay usuario autenticado, renderiza la pantalla de inicio de sesión real
+  if (!currentUser) {
+    return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
+  }
 
   return (
     <div className="min-h-screen bg-[#f0f5f2] text-slate-800 flex font-sans antialiased selection:bg-emerald-600 selection:text-white">
-      {/* Sidebar fijo a la izquierda (4 pestañas estándar) */}
+      {/* Sidebar fijo a la izquierda */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
+        currentUser={currentUser}
+        onOpenPerfilModal={() => setIsPerfilModalOpen(true)}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
@@ -179,13 +271,21 @@ export default function App() {
             <span className="font-bold text-base font-sans">Gestión Verde para Escuelas</span>
           </div>
 
-          <button
-            onClick={() => setMobileOpen(true)}
-            className="p-1.5 rounded-lg text-emerald-200 hover:text-white hover:bg-emerald-800/50"
-            aria-label="Abrir navegación"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsPerfilModalOpen(true)}
+              className="text-xs px-2.5 py-1 rounded-lg bg-emerald-800/80 text-emerald-100 font-semibold"
+            >
+              {currentUser.nombre}
+            </button>
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="p-1.5 rounded-lg text-emerald-200 hover:text-white hover:bg-emerald-800/50"
+              aria-label="Abrir navegación"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+          </div>
         </header>
 
         {/* Content View Container */}
@@ -195,6 +295,10 @@ export default function App() {
               indicadores={indicadores}
               historico={historico}
               diagnosticos={diagnosticos}
+              currentUser={currentUser}
+              onOpenLoginModal={() => setIsPerfilModalOpen(true)}
+              onOpenEstandaresModal={() => setIsEstandaresModalOpen(true)}
+              onSelectEstandar={handleUpdateEstandarEnPerfil}
               onOpenPdfReport={() => setIsPdfModalOpen(true)}
             />
           )}
@@ -220,7 +324,32 @@ export default function App() {
         </main>
       </div>
 
-      {/* Modal Generador de Reporte PDF Oficial */}
+      {/* Modal de Perfil de Usuario y Cambio de Estándar */}
+      <PerfilUsuarioModal
+        isOpen={isPerfilModalOpen}
+        onClose={() => setIsPerfilModalOpen(false)}
+        currentUser={currentUser}
+        onUpdateEstandar={handleUpdateEstandarEnPerfil}
+        onLogout={handleLogout}
+      />
+
+      {/* Modal de Detalle de Estándares Internacionales (LEED, ISO 14001, Eco-Schools) */}
+      <EstandaresModal
+        isOpen={isEstandaresModalOpen}
+        onClose={() => setIsEstandaresModalOpen(false)}
+        estandarActivo={estandarActivo}
+        onSelectEstandar={handleUpdateEstandarEnPerfil}
+        evaluacionLeed={indicadores.evaluacionLeed}
+        evaluacionIso={indicadores.evaluacionIso}
+        evaluacionEcoSchools={indicadores.evaluacionEcoSchools}
+        leedPrerrequisitos={leedPrerrequisitos}
+        onToggleLeedPrerrequisitoAreaReciclaje={handleToggleLeedAreaReciclaje}
+        ecoChecklist={ecoChecklist}
+        onToggleEcoChecklistItem={handleToggleEcoChecklistItem}
+        historico={historico}
+      />
+
+      {/* Modal Generador de Reporte PDF Oficial con Huella de Carbono */}
       <PdfReportModal
         isOpen={isPdfModalOpen}
         onClose={() => setIsPdfModalOpen(false)}
@@ -228,6 +357,7 @@ export default function App() {
         indicadores={indicadores}
         historico={historico}
         diagnosticos={diagnosticos}
+        currentUser={currentUser}
       />
     </div>
   );

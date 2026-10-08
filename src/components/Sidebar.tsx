@@ -4,15 +4,21 @@ import {
   FileEdit,
   Building2,
   Leaf,
-  X
+  X,
+  User,
+  SlidersHorizontal,
+  LogOut
 } from 'lucide-react';
-import { NavTab } from '../types';
+import { NavTab, UsuarioSesion } from '../types';
 
 interface SidebarProps {
   activeTab: NavTab;
   setActiveTab: (tab: NavTab) => void;
   mobileOpen: boolean;
   setMobileOpen: (open: boolean) => void;
+  currentUser: UsuarioSesion | null;
+  onOpenPerfilModal: () => void;
+  onLogout: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -20,6 +26,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setActiveTab,
   mobileOpen,
   setMobileOpen,
+  currentUser,
+  onOpenPerfilModal,
+  onLogout,
 }) => {
   const navItems = [
     {
@@ -57,12 +66,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         <div className="flex flex-col flex-1 p-5 overflow-y-auto">
           {/* Logo & Brand: Gestion Verde para Escuelas */}
-          <div className="flex items-center justify-between pb-8 pt-2">
+          <div className="flex items-center justify-between pb-7 pt-2">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center text-emerald-400 shrink-0">
                 <Leaf className="w-7 h-7 text-emerald-400 fill-emerald-400" />
               </div>
-              <span className="text-lg font-bold tracking-tight text-white font-sans leading-snug">
+              <span className="text-base font-bold tracking-tight text-white font-sans leading-snug">
                 Gestión Verde para Escuelas
               </span>
             </div>
@@ -78,7 +87,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* Navigation Links */}
-          <nav className="space-y-2 flex-1">
+          <nav className="space-y-1.5 flex-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -107,10 +116,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </nav>
         </div>
 
-        {/* Sidebar Footer */}
-        <div className="p-5 border-t border-emerald-800/40">
-          <p className="text-[11px] text-emerald-100 font-semibold font-sans">
-            Estándares: ISO 14001 | LEED | Eco-Schools
+        {/* Sidebar Footer: Perfil de Usuario Activo (Administrador o Supervisor) */}
+        <div className="p-4 border-t border-emerald-800/50 space-y-3 bg-[#013b29]">
+          {currentUser && (
+            <div className="space-y-2">
+              <div
+                onClick={onOpenPerfilModal}
+                className="flex items-center justify-between p-2 rounded-xl bg-emerald-950/40 hover:bg-emerald-800/50 cursor-pointer transition border border-emerald-700/40 group"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+                    currentUser.rol === 'ADMINISTRADOR'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-blue-600 text-white'
+                  }`}>
+                    {currentUser.nombre.charAt(0)}
+                  </div>
+                  <div className="truncate">
+                    <span className="block text-xs font-bold text-white truncate font-sans">
+                      {currentUser.nombre}
+                    </span>
+                    <span className="text-[10px] text-emerald-300/80 block truncate font-mono">
+                      Estándar: {currentUser.estandarSeleccionado}
+                    </span>
+                  </div>
+                </div>
+
+                <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-400 opacity-60 group-hover:opacity-100 transition shrink-0" />
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] px-1 text-emerald-300/70">
+                <span>Sesión: <strong className="text-emerald-200 font-mono">{currentUser.username}</strong></span>
+                <button
+                  onClick={onLogout}
+                  className="text-emerald-300/60 hover:text-rose-300 transition flex items-center gap-1"
+                  title="Cerrar Sesión"
+                >
+                  <LogOut className="w-3 h-3" />
+                  <span>Salir</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          <p className="text-[10px] text-emerald-400/50 leading-tight text-center font-sans">
+            Normativas: ISO 14001 | LEED | Eco-Schools
           </p>
         </div>
       </aside>

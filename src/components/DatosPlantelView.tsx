@@ -113,7 +113,7 @@ export const DatosPlantelView: React.FC<DatosPlantelViewProps> = ({
 
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Personal Coordinador
+                Personal Administrador
               </label>
               <input
                 type="number"
@@ -127,7 +127,7 @@ export const DatosPlantelView: React.FC<DatosPlantelViewProps> = ({
 
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Personal Administrativo y Docente
+                Personal Supervisor
               </label>
               <input
                 type="number"

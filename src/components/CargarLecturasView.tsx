@@ -37,8 +37,8 @@ export const CargarLecturasView: React.FC<CargarLecturasViewProps> = ({
   const [tipoRecurso, setTipoRecurso] = useState<'AGUA' | 'ENERGIA'>('AGUA');
   const [valorRecurso, setValorRecurso] = useState('558.0');
   const [periodoRecurso, setPeriodoRecurso] = useState('2026-08');
-  const [cargoResponsable, setCargoResponsable] = useState<'COORDINADOR' | 'USUARIO_FINAL'>('COORDINADOR');
-  const [responsableNombre, setResponsableNombre] = useState('Coordinador de Servicios Operacionales y Mantenimiento');
+  const [cargoResponsable, setCargoResponsable] = useState<'ADMINISTRADOR' | 'SUPERVISOR'>('ADMINISTRADOR');
+  const [responsableNombre, setResponsableNombre] = useState('Administrador');
   const [costoRecurso, setCostoRecurso] = useState('2230.0');
   const [notasRecurso, setNotasRecurso] = useState('Lectura regular mensual del medidor principal');
   const [successMsg, setSuccessMsg] = useState('');
@@ -47,7 +47,7 @@ export const CargarLecturasView: React.FC<CargarLecturasViewProps> = ({
   const [categoriaDesecho, setCategoriaDesecho] = useState<'ORGANICO' | 'RECICLABLE' | 'NO_RECICLABLE' | 'PELIGROSO'>('RECICLABLE');
   const [pesoKg, setPesoKg] = useState('380');
   const [destinoDesecho, setDestinoDesecho] = useState('Asociación Certificada de Reciclaje (Papel, cartón y plástico)');
-  const [responsableDesecho, setResponsableDesecho] = useState('Docente / Comité Ambiental');
+  const [responsableDesecho, setResponsableDesecho] = useState('Supervisor');
 
   const handleSubRecurso = (e: React.FormEvent) => {
     e.preventDefault();
@@ -207,11 +207,15 @@ export const CargarLecturasView: React.FC<CargarLecturasViewProps> = ({
                   </label>
                   <select
                     value={cargoResponsable}
-                    onChange={(e) => setCargoResponsable(e.target.value as any)}
+                    onChange={(e) => {
+                      const val = e.target.value as 'ADMINISTRADOR' | 'SUPERVISOR';
+                      setCargoResponsable(val);
+                      setResponsableNombre(val === 'ADMINISTRADOR' ? 'Administrador' : 'Supervisor');
+                    }}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 focus:outline-none focus:border-emerald-600"
                   >
-                    <option value="COORDINADOR">Coordinador (Servicios Operacionales y Mantenimiento)</option>
-                    <option value="USUARIO_FINAL">Usuario Final (Personal Administrativo / Docente)</option>
+                    <option value="ADMINISTRADOR">Administrador (Admin)</option>
+                    <option value="SUPERVISOR">Supervisor (Superv)</option>
                   </select>
                 </div>
 

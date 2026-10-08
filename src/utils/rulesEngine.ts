@@ -6,7 +6,14 @@ import {
   LecturaSensorAmbiental,
   ReglaProduccionInferencia,
   DiagnosticoAutomatizado,
-  IndicadoresGestionVerde
+  IndicadoresGestionVerde,
+  EstandarEvaluacion,
+  LeedPrerrequisitos,
+  LeedEvaluacion,
+  Iso14001Evaluacion,
+  EcoSchoolsChecklistItem,
+  EcoSchoolsEvaluacion,
+  HuellaCarbonoCalculo
 } from '../types';
 
 export const INITIAL_PLANTEL: PlantelConfig = {
@@ -14,16 +21,75 @@ export const INITIAL_PLANTEL: PlantelConfig = {
   codigoPlantel: 'URBE-ESC-01',
   institucionReferencia: 'Universidad Privada Dr. Rafael Belloso Chacín (URBE)',
   poblacionEstudiantil: 450,
-  personalCoordinadores: 2,   // Cuadro 1: Servicios operacionales, mantenimiento diario del plantel (2)
-  personalUsuariosFinales: 2, // Cuadro 1: Personal administrativo, Docentes (2)
+  personalCoordinadores: 2,
+  personalUsuariosFinales: 2,
   superficieTotalM2: 12500,
-  superficieAreasVerdesM2: 3100, // 3100 / 12500 = 24.8% áreas verdes permeables (pág. 11)
+  superficieAreasVerdesM2: 3100, // 24.8% área permeable
   diasHabilesMes: 20,
   metaConsumoHidricoLPorAlumno: 1350,
   limiteConsumoEnergeticoKwh: 35.0,
   metaReciclajeEcoSchoolsPct: 50.0,
   umbralTemperaturaAlerta: 26.5
 };
+
+export const INITIAL_LEED_PRERREQUISITOS: LeedPrerrequisitos = {
+  areaReciclajeConstruida: true, // Espacio físico construido para clasificar papel, cartón, vidrio, plástico y metal
+  inventarioTecnicoSanitarios: {
+    inodorosLitrosPorDescarga: 4.8, // 4.8 L/descarga (bajo consumo exigido por LEED)
+    grifosLitrosPorMinuto: 1.9      // 1.9 L/min con aireadores
+  },
+  demandaElectricaInstaladaKwh: 14500,
+  superficieTopograficaM2: {
+    areaConstruida: 9400,
+    areasVerdes: 3100
+  },
+  reduccionAguaExigidaPct: 20.0,    // LEED exige mínimo 20% de reducción
+  reduccionEnergiaExigidaPct: 4.0,  // LEED exige entre 3% y 5%
+  desviacionDesechosMinimaPct: 50.0 // Mínimo 50% de reciclaje
+};
+
+export const INITIAL_ECO_SCHOOLS_CHECKLIST: EcoSchoolsChecklistItem[] = [
+  {
+    id: 'eco-1',
+    titulo: 'Mantenimiento Preventivo de Tuberías y Grifos',
+    descripcion: 'Inspección técnica quincenal y sellado inmediato de fugas en sanitarios y bebederos.',
+    categoria: 'AGUA',
+    completado: true,
+    responsable: 'Coordinador de Mantenimiento'
+  },
+  {
+    id: 'eco-2',
+    titulo: 'Brigada Ecológica Estudiantil Activa',
+    descripcion: 'Comité ambiental conformado con alumnos de diversos grados realizando patrullas ecológicas.',
+    categoria: 'COMUNIDAD',
+    completado: true,
+    responsable: 'Docente de Ciencias / Brigada'
+  },
+  {
+    id: 'eco-3',
+    titulo: 'Puntos Ecológicos y Separación en Aulas',
+    descripcion: 'Estaciones de clasificación de 3 contenedores (orgánico, reciclable, ordinario) en pasillos y salones.',
+    categoria: 'DESECHOS',
+    completado: true,
+    responsable: 'Comité Ambiental Escolar'
+  },
+  {
+    id: 'eco-4',
+    titulo: 'Huerto Escolar y Compostaje de Residuos',
+    descripcion: 'Aprovechamiento de residuos del comedor para abono orgánico en las áreas verdes permeables.',
+    categoria: 'BIODIVERSIDAD',
+    completado: true,
+    responsable: 'Docentes y Alumnos'
+  },
+  {
+    id: 'eco-5',
+    titulo: 'Protocolo de Apagado Fuera de Horario Escolar',
+    descripcion: 'Desconexión sistemática de aires acondicionados, luminarias y equipos de cómputo al terminar la jornada.',
+    categoria: 'ENERGIA',
+    completado: false,
+    responsable: 'Personal de Apoyo y Administrativo'
+  }
+];
 
 export const INITIAL_HISTORICO: HistoricoMes[] = [
   {
@@ -122,181 +188,298 @@ export const INITIAL_SENSOR: LecturaSensorAmbiental = {
 };
 
 /**
- * Motor de Inferencia (Librería Experta / Reglas Si-Entonces)
- * Evalúa los parámetros operacionales y variables matemáticas clave según el Capítulo III:
- * - Consumo hídrico mensual por alumno en litros
- * - Consumo energético en kWh/mes por alumno
- * - Clasificación de desechos sólidos y porcentaje de reciclaje
- * - Porcentaje de áreas verdes permeables
- * - Temperatura y humedad detectadas por el sensor ambiental
+ * Motor de Inferencia y Lógica de Evaluación:
+ * 1. Estándar LEED: Prerrequisitos + Línea Base y Reducciones Exigidas (Agua >=20%, Energía 3-5%, Desechos 50-75%)
+ * 2. Estándar ISO 14001: Consumo Inicial (Año 0) y Demostración de Mejora Continua mes a mes
+ * 3. Estándar Eco-Schools: Lista de Verificación (Checklists) de Acciones Concretas (Brigadas, Mantenimiento)
+ * 4. Determinación de "Escuela Verde": Cálculo de Huella de Carbono neta vs Línea Base
  */
 export function ejecutarMotorInferencia(
   plantel: PlantelConfig,
   historico: HistoricoMes[],
   desechos: RegistroDesecho[],
-  sensor: LecturaSensorAmbiental
+  sensor: LecturaSensorAmbiental,
+  estandarActivo: EstandarEvaluacion = 'LEED',
+  leedPrerrequisitos: LeedPrerrequisitos = INITIAL_LEED_PRERREQUISITOS,
+  ecoChecklist: EcoSchoolsChecklistItem[] = INITIAL_ECO_SCHOOLS_CHECKLIST
 ): {
   indicadores: IndicadoresGestionVerde;
   reglas: ReglaProduccionInferencia[];
   diagnosticos: DiagnosticoAutomatizado[];
 } {
+  const primerMes = historico[0] || INITIAL_HISTORICO[0];
   const ultimoMes = historico[historico.length - 1] || INITIAL_HISTORICO[INITIAL_HISTORICO.length - 1];
   const penultimoMes = historico[historico.length - 2] || ultimoMes;
 
-  // Variables matemáticas clave (pág. 11)
-  const consumoHidricoLPorAlumno = ultimoMes.aguaLPorAlumno; // 1,240 L/est
+  // Variables matemáticas clave
+  const consumoHidricoLPorAlumno = ultimoMes.aguaLPorAlumno;
   const tendenciaHidricaPct = penultimoMes.aguaLPorAlumno > 0
     ? Math.round(((ultimoMes.aguaLPorAlumno - penultimoMes.aguaLPorAlumno) / penultimoMes.aguaLPorAlumno) * 100)
     : -12;
 
-  const consumoEnergeticoKwhPorAlumno = ultimoMes.energiaKwhPorAlumno; // 28.4 kWh/est
-  const limiteLeedKwh = plantel.limiteConsumoEnergeticoKwh; // 35.0 kWh
+  const consumoEnergeticoKwhPorAlumno = ultimoMes.energiaKwhPorAlumno;
+  const limiteLeedKwh = plantel.limiteConsumoEnergeticoKwh;
 
-  // Clasificación de desechos sólidos y tasa de reciclaje
+  // Tasa de reciclaje
   const org = desechos.filter(d => d.categoria === 'ORGANICO').reduce((acc, d) => acc + d.peso_kg, 0);
   const rec = desechos.filter(d => d.categoria === 'RECICLABLE').reduce((acc, d) => acc + d.peso_kg, 0);
+  const noRec = desechos.filter(d => d.categoria === 'NO_RECICLABLE').reduce((acc, d) => acc + d.peso_kg, 0);
   const totalDesechos = desechos.reduce((acc, d) => acc + d.peso_kg, 0);
   const tasaReciclajeDesechosPct = totalDesechos > 0
     ? parseFloat((( (org + rec) / totalDesechos ) * 100).toFixed(1))
     : 62.5;
 
-  // Porcentaje de áreas verdes permeables (pág. 11)
+  // Áreas verdes permeables
   const porcentajeAreasVerdesPermeables = plantel.superficieTotalM2 > 0
     ? parseFloat(((plantel.superficieAreasVerdesM2 / plantel.superficieTotalM2) * 100).toFixed(1))
     : 24.8;
 
-  // Estado del sensor ambiental
+  // Sensor
   const tempConforme = sensor.temperaturaC <= plantel.umbralTemperaturaAlerta && sensor.temperaturaC >= 20.0;
   const humConforme = sensor.humedadPct >= 30.0 && sensor.humedadPct <= 60.0;
   const estadoSensor: 'OPTIMO' | 'ALERTA' = (tempConforme && humConforme) ? 'OPTIMO' : 'ALERTA';
 
-  // Estructuración de Reglas de Producción Condicionales ("Si-Entonces")
+  // --- A. EVALUACIÓN ESTÁNDAR LEED (Prerrequisitos y Línea Base) ---
+  const prerrequisitosCumplidos = leedPrerrequisitos.areaReciclajeConstruida &&
+    leedPrerrequisitos.inventarioTecnicoSanitarios.inodorosLitrosPorDescarga <= 6.0 &&
+    leedPrerrequisitos.inventarioTecnicoSanitarios.grifosLitrosPorMinuto <= 2.2;
+
+  const lineaBaseAgua = primerMes.aguaLPorAlumno; // ej. 1500 L/est
+  const reduccionAguaLogradaPct = lineaBaseAgua > 0
+    ? parseFloat((((lineaBaseAgua - consumoHidricoLPorAlumno) / lineaBaseAgua) * 100).toFixed(1))
+    : 0;
+  const cumpleReduccionAgua = reduccionAguaLogradaPct >= leedPrerrequisitos.reduccionAguaExigidaPct; // >= 20%
+
+  const lineaBaseEnergia = primerMes.energiaKwhPorAlumno; // ej. 29.8 kWh/est
+  const reduccionEnergiaLogradaPct = lineaBaseEnergia > 0
+    ? parseFloat((((lineaBaseEnergia - consumoEnergeticoKwhPorAlumno) / lineaBaseEnergia) * 100).toFixed(1))
+    : 0;
+  const cumpleReduccionEnergia = reduccionEnergiaLogradaPct >= leedPrerrequisitos.reduccionEnergiaExigidaPct; // >= 4%
+
+  const cumpleReciclajeLeed = tasaReciclajeDesechosPct >= leedPrerrequisitos.desviacionDesechosMinimaPct; // >= 50%
+  const cumpleTotalLeed = prerrequisitosCumplidos && cumpleReduccionAgua && cumpleReduccionEnergia && cumpleReciclajeLeed;
+
+  const evaluacionLeed: LeedEvaluacion = {
+    prerrequisitosCumplidos,
+    lineaBaseAguaLPorAlumno: lineaBaseAgua,
+    reduccionAguaLogradaPct,
+    cumpleReduccionAgua,
+    lineaBaseEnergiaKwhPorAlumno: lineaBaseEnergia,
+    reduccionEnergiaLogradaPct,
+    cumpleReduccionEnergia,
+    tasaReciclajeActualPct: tasaReciclajeDesechosPct,
+    cumpleReciclaje: cumpleReciclajeLeed,
+    cumpleTotalLeed,
+    nivelCertificacion: cumpleTotalLeed
+      ? (reduccionAguaLogradaPct >= 25 && reduccionEnergiaLogradaPct >= 6 ? 'Platino' : 'Oro')
+      : 'No Aprobado'
+  };
+
+  // --- B. EVALUACIÓN ESTÁNDAR ISO 14001 (Mejora Continua mes a mes vs Año 0) ---
+  const reduccionAguaVsAnoCero = primerMes.aguaLPorAlumno > 0
+    ? parseFloat((((primerMes.aguaLPorAlumno - ultimoMes.aguaLPorAlumno) / primerMes.aguaLPorAlumno) * 100).toFixed(1))
+    : 0;
+  const reduccionEnergiaVsAnoCero = primerMes.energiaKwhPorAlumno > 0
+    ? parseFloat((((primerMes.energiaKwhPorAlumno - ultimoMes.energiaKwhPorAlumno) / primerMes.energiaKwhPorAlumno) * 100).toFixed(1))
+    : 0;
+
+  // Verificación mes a mes de no incremento severo
+  let mesAMesMejoraContinua = true;
+  for (let i = 1; i < historico.length; i++) {
+    if (historico[i].aguaLPorAlumno > historico[i - 1].aguaLPorAlumno * 1.05 ||
+        historico[i].energiaKwhPorAlumno > historico[i - 1].energiaKwhPorAlumno * 1.05) {
+      mesAMesMejoraContinua = false;
+      break;
+    }
+  }
+
+  const evaluacionIso: Iso14001Evaluacion = {
+    consumoInicialAnoCero: {
+      aguaLPorAlumno: primerMes.aguaLPorAlumno,
+      energiaKwhPorAlumno: primerMes.energiaKwhPorAlumno,
+      fechaInicio: 'Enero 2026'
+    },
+    reduccionAguaVsAnoCeroPct: reduccionAguaVsAnoCero,
+    reduccionEnergiaVsAnoCeroPct: reduccionEnergiaVsAnoCero,
+    mesAMesMejoraContinua,
+    cumplimientoCicloPHVA: mesAMesMejoraContinua && reduccionAguaVsAnoCero > 0
+  };
+
+  // --- C. EVALUACIÓN ESTÁNDAR ECO-SCHOOLS (Checklist de Acciones Concretas) ---
+  const totalAcciones = ecoChecklist.length;
+  const accionesCompletadas = ecoChecklist.filter(item => item.completado).length;
+  const porcentajeCumplimientoEco = totalAcciones > 0
+    ? Math.round((accionesCompletadas / totalAcciones) * 100)
+    : 0;
+  const calificaBanderaVerde = porcentajeCumplimientoEco >= 80 && tasaReciclajeDesechosPct >= 50;
+
+  const evaluacionEcoSchools: EcoSchoolsEvaluacion = {
+    totalAcciones,
+    accionesCompletadas,
+    porcentajeCumplimiento: porcentajeCumplimientoEco,
+    calificaBanderaVerde
+  };
+
+  // --- D. CÁLCULO CIENTÍFICO DE HUELLA ECOLÓGICA / HUELLA DE CARBONO ---
+  // Factores de emisión:
+  // - Electricidad: 0.42 kg CO2e / kWh
+  // - Agua bombeada y saneamiento: 0.35 kg CO2e / m3
+  // - Desechos ordinarios a vertedero: 1.25 kg CO2e / kg
+  // - Desechos reciclados/compostados: -0.85 kg CO2e / kg evitado
+  // - Captura de carbono por área verde: -0.15 kg CO2e / m2 / mes
+  const emisionesElectricidadActual = (ultimoMes.energiaTotalKwh * 0.42);
+  const emisionesAguaActual = (ultimoMes.aguaTotalM3 * 0.35);
+  const emisionesDesechosActual = (noRec * 1.25) - ((org + rec) * 0.85);
+  const capturaAreasVerdes = (plantel.superficieAreasVerdesM2 * 0.15);
+
+  const huellaNetaActualKg = Math.max(0, emisionesElectricidadActual + emisionesAguaActual + emisionesDesechosActual - capturaAreasVerdes);
+  const huellaNetaActualTon = parseFloat((huellaNetaActualKg / 1000).toFixed(2));
+
+  // Línea Base (Mes 0)
+  const emisionesElectricidadBase = (primerMes.energiaTotalKwh * 0.42);
+  const emisionesAguaBase = (primerMes.aguaTotalM3 * 0.35);
+  const emisionesDesechosBase = (totalDesechos * 1.15); // Antes de programa de reciclaje
+  const huellaNetaBaseKg = Math.max(0, emisionesElectricidadBase + emisionesAguaBase + emisionesDesechosBase - capturaAreasVerdes);
+  const huellaNetaLineaBaseTon = parseFloat((huellaNetaBaseKg / 1000).toFixed(2));
+
+  const reduccionHuellaPct = huellaNetaLineaBaseTon > 0
+    ? parseFloat((((huellaNetaLineaBaseTon - huellaNetaActualTon) / huellaNetaLineaBaseTon) * 100).toFixed(1))
+    : 0;
+
+  // Condición de Escuela Verde según la directriz del profesor:
+  // La escuela se considera "Verde" en el momento en que su Huella de Carbono disminuye >= 15% vs Línea Base
+  const umbralReduccionEscuelaVerdePct = 15.0;
+  const esEscuelaVerde = reduccionHuellaPct >= umbralReduccionEscuelaVerdePct && (
+    (estandarActivo === 'LEED' && cumpleTotalLeed) ||
+    (estandarActivo === 'ISO_14001' && evaluacionIso.cumplimientoCicloPHVA) ||
+    (estandarActivo === 'ECO_SCHOOLS' && calificaBanderaVerde)
+  );
+
+  const huellaCarbono: HuellaCarbonoCalculo = {
+    emisionesElectricidadKgCO2e: Math.round(emisionesElectricidadActual),
+    emisionesAguaKgCO2e: Math.round(emisionesAguaActual),
+    emisionesDesechosKgCO2e: Math.round(emisionesDesechosActual),
+    capturaAreasVerdesKgCO2e: Math.round(capturaAreasVerdes),
+    huellaNetaActualTonCO2e: huellaNetaActualTon,
+    huellaNetaLineaBaseTonCO2e: huellaNetaLineaBaseTon,
+    reduccionHuellaPct,
+    umbralReduccionEscuelaVerdePct,
+    esEscuelaVerde,
+    estatusCertificacion: esEscuelaVerde ? 'ESCUELA_VERDE_CERTIFICADA' : 'EN_TRANSICION_ECOLOGICA'
+  };
+
+  // --- REGLAS DE PRODUCCIÓN SI-ENTONCES ---
   const reglas: ReglaProduccionInferencia[] = [];
 
-  // Regla 1: Eficiencia Hídrica (LEED / ISO 14001)
-  const cumpleAgua = consumoHidricoLPorAlumno <= plantel.metaConsumoHidricoLPorAlumno;
+  // Regla LEED: Reducción hídrica del 20%
   reglas.push({
-    id: 'regla-hidrica-leed',
+    id: 'regla-leed-agua',
     norma: 'LEED para Escuelas',
-    criterio: 'Consumo hídrico mensual por alumno en litros',
-    reglaSiEntonces: 'SI consumo_hidrico_por_alumno <= 1350 L ENTONCES estado = CUMPLIMIENTO_OPTIMO',
-    variableAnalizada: 'consumo_hidrico_por_alumno',
-    valorActual: `${consumoHidricoLPorAlumno.toLocaleString()} L/alumno`,
-    rangoToleranciaLimite: `Límite tolerable: ≤ ${plantel.metaConsumoHidricoLPorAlumno.toLocaleString()} L/alumno`,
-    cumple: cumpleAgua,
-    estadoTolerancia: cumpleAgua ? 'DENTRO_DE_TOLERANCIA' : 'EXCEDIDO',
-    diagnostico: cumpleAgua
-      ? 'El consumo hídrico por estudiante se mantiene dentro de los límites óptimos del estándar LEED.'
-      : 'Consumo hídrico mensual sobrepasa el rango de tolerancia ecológica establecido.',
-    planDeAccionCorrectivo: cumpleAgua
-      ? 'Mantener inspección preventiva quincenal en grifos y sanitarios por los coordinadores de mantenimiento.'
-      : 'Activar protocolo de detección de fugas en redes subterráneas y verificar calibración de fluxómetros.'
+    criterio: 'Reducción estricta de agua vs Línea Base (>= 20%)',
+    reglaSiEntonces: 'SI reduccion_agua_vs_linea_base >= 20.0% Y prerrequisitos_cumplidos ENTONCES leed_agua = APROBADO',
+    variableAnalizada: 'reduccion_agua_vs_linea_base',
+    valorActual: `${reduccionAguaLogradaPct}% reducción (${consumoHidricoLPorAlumno} L/est)`,
+    rangoToleranciaLimite: `Exigencia LEED: Mínimo 20.0% reducción (Base: ${lineaBaseAgua} L)`,
+    cumple: cumpleReduccionAgua,
+    estadoTolerancia: cumpleReduccionAgua ? 'DENTRO_DE_TOLERANCIA' : 'EXCEDIDO',
+    diagnostico: cumpleReduccionAgua
+      ? `Meta LEED alcanzada: Se redujo un ${reduccionAguaLogradaPct}% de consumo hídrico respecto a la línea base.`
+      : `Reducción insuficiente (${reduccionAguaLogradaPct}%). Se requiere alcanzar al menos el 20.0% de ahorro.`,
+    planDeAccionCorrectivo: 'Inspeccionar grifos de 1.9 L/min y ajustar presión de fluxómetros institucionales.'
   });
 
-  // Regla 2: Eficiencia Energética (LEED EUI)
-  const cercaLimiteEnergia = consumoEnergeticoKwhPorAlumno >= (limiteLeedKwh * 0.8);
-  const cumpleEnergia = consumoEnergeticoKwhPorAlumno <= limiteLeedKwh;
+  // Regla LEED: Eficiencia energética (3% a 5%)
   reglas.push({
-    id: 'regla-energia-leed',
+    id: 'regla-leed-energia',
     norma: 'LEED para Escuelas',
-    criterio: 'Consumo energético en kWh/mes por alumno',
-    reglaSiEntonces: 'SI consumo_energetico_por_alumno >= 28.0 Y <= 35.0 ENTONCES estado = ALERTA_PREVENTIVA',
-    variableAnalizada: 'consumo_energetico_por_alumno',
-    valorActual: `${consumoEnergeticoKwhPorAlumno.toFixed(1)} kWh/alumno`,
-    rangoToleranciaLimite: `Límite máximo LEED: ${limiteLeedKwh.toFixed(1)} kWh`,
-    cumple: cumpleEnergia,
-    estadoTolerancia: !cumpleEnergia ? 'EXCEDIDO' : cercaLimiteEnergia ? 'CERCA_DEL_LIMITE' : 'DENTRO_DE_TOLERANCIA',
-    diagnostico: cercaLimiteEnergia
-      ? 'Se detectó un incremento del 8% en el consumo nocturno. Revisar sistemas de climatización fuera de horario laboral.'
-      : 'Consumo energético en rango aceptable.',
-    planDeAccionCorrectivo: 'Desconexión de cargas fantasmas y regulación horaria del encendido de acondicionadores de aire.'
+    criterio: 'Reducción energética vs Línea Base (3% - 5%)',
+    reglaSiEntonces: 'SI reduccion_energia_vs_linea_base >= 4.0% ENTONCES leed_energia = APROBADO',
+    variableAnalizada: 'reduccion_energia_vs_linea_base',
+    valorActual: `${reduccionEnergiaLogradaPct}% reducción (${consumoEnergeticoKwhPorAlumno} kWh/est)`,
+    rangoToleranciaLimite: `Exigencia LEED: 3% a 5% reducción (Base: ${lineaBaseEnergia} kWh)`,
+    cumple: cumpleReduccionEnergia,
+    estadoTolerancia: cumpleReduccionEnergia ? 'DENTRO_DE_TOLERANCIA' : 'CERCA_DEL_LIMITE',
+    diagnostico: cumpleReduccionEnergia
+      ? `Ahorro energético del ${reduccionEnergiaLogradaPct}% consolidado dentro del rango exigido por LEED.`
+      : `Ahorro del ${reduccionEnergiaLogradaPct}% cercano al umbral preventivo.`,
+    planDeAccionCorrectivo: 'Programación de apagado automático de climatización fuera de horario laboral.'
   });
 
-  // Regla 3: Clasificación de Desechos Sólidos (Eco-Schools)
-  const cumpleReciclaje = tasaReciclajeDesechosPct >= plantel.metaReciclajeEcoSchoolsPct;
+  // Regla ISO 14001: Mejora continua progresiva
   reglas.push({
-    id: 'regla-desechos-ecoschools',
-    norma: 'Eco-Schools',
-    criterio: 'Clasificación y valorización de desechos sólidos',
-    reglaSiEntonces: 'SI tasa_reciclaje_desechos >= 50.0% ENTONCES estado = META_BANDERA_VERDE_ALCANZADA',
-    variableAnalizada: 'tasa_reciclaje_desechos',
-    valorActual: `${tasaReciclajeDesechosPct}%`,
-    rangoToleranciaLimite: `Meta Eco-Schools: > ${plantel.metaReciclajeEcoSchoolsPct}%`,
-    cumple: cumpleReciclaje,
-    estadoTolerancia: cumpleReciclaje ? 'DENTRO_DE_TOLERANCIA' : 'EXCEDIDO',
-    diagnostico: cumpleReciclaje
-      ? 'Meta Eco-Schools alcanzada (>50% de residuos valorizados en compostaje y reciclaje).'
-      : 'Generación de desechos no aprovechables excede la meta de sostenibilidad.',
-    planDeAccionCorrectivo: 'Fortalecer campañas de separación en aulas con usuarios finales (docentes y alumnos).'
-  });
-
-  // Regla 4: Porcentaje de Áreas Verdes Permeables (ISO 14001 / LEED)
-  const cumpleAreasVerdes = porcentajeAreasVerdesPermeables >= 20.0;
-  reglas.push({
-    id: 'regla-areas-verdes',
+    id: 'regla-iso-mejora',
     norma: 'ISO 14001',
-    criterio: 'Porcentaje de áreas verdes permeables en el predio escolar',
-    reglaSiEntonces: 'SI porcentaje_areas_verdes >= 20.0% ENTONCES estado = COBERTURA_CONFORME',
-    variableAnalizada: 'porcentaje_areas_verdes_permeables',
-    valorActual: `${porcentajeAreasVerdesPermeables}%`,
-    rangoToleranciaLimite: 'Requisito normativo: Mínimo 20.0% de área permeable',
-    cumple: cumpleAreasVerdes,
-    estadoTolerancia: cumpleAreasVerdes ? 'DENTRO_DE_TOLERANCIA' : 'EXCEDIDO',
-    diagnostico: 'Área permeable disponible para mitigación de escorrentía pluvial e isla de calor.',
-    planDeAccionCorrectivo: 'Conservar la cobertura vegetal y mantener programas de jardinería sustentable.'
+    criterio: 'Demostración de Mejora Continua mes a mes (Ciclo PHVA)',
+    reglaSiEntonces: 'SI consumo_mes_actual <= consumo_mes_anterior ENTONCES mejora_continua = VERIFICADA',
+    variableAnalizada: 'tendencia_consumos_mes_a_mes',
+    valorActual: `Reducción acumulada: -${reduccionAguaVsAnoCero}% Agua / -${reduccionEnergiaVsAnoCero}% Energía`,
+    rangoToleranciaLimite: 'Requisito ISO: Consumos en descenso progresivo sin picos >5%',
+    cumple: mesAMesMejoraContinua,
+    estadoTolerancia: mesAMesMejoraContinua ? 'DENTRO_DE_TOLERANCIA' : 'EXCEDIDO',
+    diagnostico: mesAMesMejoraContinua
+      ? 'Tendencia progresiva de mejora continua verificada conforme a ISO 14001:2015.'
+      : 'Se detectaron incrementos atípicos en meses intermedios que requieren auditoría interna.',
+    planDeAccionCorrectivo: 'Ejecutar revisión del ciclo PHVA y ajustar metas ambientales departamentales.'
   });
 
-  // Regla 5: Sensor Ambiental
+  // Regla Eco-Schools: Checklist de Acciones Concretas
   reglas.push({
-    id: 'regla-sensor-ambiental',
-    norma: 'Sensor Ambiental',
-    criterio: 'Variables ambientales en tiempo real (Temperatura y Humedad)',
-    reglaSiEntonces: 'SI temperatura <= 26.5°C Y humedad ENTRE 30% Y 60% ENTONCES confort = OPTIMO',
-    variableAnalizada: 'sensor_temperatura_humedad',
-    valorActual: `${sensor.temperaturaC.toFixed(1)}°C / ${sensor.humedadPct.toFixed(1)}%`,
-    rangoToleranciaLimite: `Máx ${plantel.umbralTemperaturaAlerta}°C / HR 30%-60%`,
-    cumple: estadoSensor === 'OPTIMO',
-    estadoTolerancia: estadoSensor === 'OPTIMO' ? 'DENTRO_DE_TOLERANCIA' : 'CERCA_DEL_LIMITE',
-    diagnostico: estadoSensor === 'OPTIMO'
-      ? 'Condiciones ambientales en el plantel en zona de confort óptimo.'
-      : 'Condición térmica fuera de rango de confort.',
-    planDeAccionCorrectivo: 'Ventilación cruzada o ajuste de sistemas de acondicionamiento de aire.'
+    id: 'regla-ecoschools-acciones',
+    norma: 'Eco-Schools',
+    criterio: 'Lista de verificación de acciones escolares concretas (>= 80%)',
+    reglaSiEntonces: 'SI porcentaje_checklist >= 80% Y tasa_reciclaje >= 50% ENTONCES bandera_verde = OTORGADA',
+    variableAnalizada: 'checklist_acciones_concretas',
+    valorActual: `${porcentajeCumplimientoEco}% (${accionesCompletadas}/${totalAcciones} acciones cumplidas)`,
+    rangoToleranciaLimite: 'Requisito Eco-Schools: Mínimo 80% de checklist y >50% reciclaje',
+    cumple: calificaBanderaVerde,
+    estadoTolerancia: calificaBanderaVerde ? 'DENTRO_DE_TOLERANCIA' : 'CERCA_DEL_LIMITE',
+    diagnostico: calificaBanderaVerde
+      ? 'Cumplimiento sobresaliente del programa Eco-Schools con brigadas y protocolos activos.'
+      : 'Checklist al ' + porcentajeCumplimientoEco + '%. Se requiere completar las acciones pendientes para Bandera Verde.',
+    planDeAccionCorrectivo: 'Activar el protocolo de apagado nocturno con el personal administrativo y de apoyo.'
   });
 
-  // Diagnósticos Automatizados del Sistema Experto (pág. 11, 15)
+  // Diagnósticos Automatizados del Sistema Experto
   const diagnosticos: DiagnosticoAutomatizado[] = [];
 
-  if (cercaLimiteEnergia) {
+  if (esEscuelaVerde) {
     diagnosticos.push({
-      id: 'diag-energia',
+      id: 'diag-escuela-verde',
+      tipo: 'SENSOR_AMBIENTAL',
+      severidad: 'CUMPLIMIENTO',
+      titulo: 'Dictamen Oficial: Escuela Verde Certificada',
+      mensaje: `La Huella de Carbono del plantel disminuyó un ${reduccionHuellaPct}% respecto a la línea base (Meta: >=${umbralReduccionEscuelaVerdePct}%), cumpliendo a cabalidad con el estándar ${estandarActivo}.`,
+      normaReferencia: estandarActivo,
+      planDeAccionCorrectivo: 'Generar reporte de auditoría oficial para postulación al reconocimiento ambiental internacional.',
+      fecha: 'Activa'
+    });
+  } else {
+    diagnosticos.push({
+      id: 'diag-en-transicion',
+      tipo: 'SENSOR_AMBIENTAL',
+      severidad: 'ALERTA',
+      titulo: 'En Proceso de Transición Ecológica',
+      mensaje: `La reducción de Huella de Carbono actual es de ${reduccionHuellaPct}% (Faltan ${(umbralReduccionEscuelaVerdePct - reduccionHuellaPct).toFixed(1)}% para alcanzar la acreditación de Escuela Verde).`,
+      normaReferencia: estandarActivo,
+      planDeAccionCorrectivo: 'Optimizar el consumo nocturno de energía y elevar la clasificación de materiales reciclables.',
+      fecha: 'Activa'
+    });
+  }
+
+  if (estandarActivo === 'LEED' && !cumpleTotalLeed) {
+    diagnosticos.push({
+      id: 'diag-leed-alerta',
       tipo: 'ENERGIA',
       severidad: 'ALERTA',
-      titulo: 'Alerta Energética:',
-      mensaje: 'Se detectó un incremento del 8% en el consumo nocturno. Revisar sistemas de climatización fuera de horario laboral.',
-      normaReferencia: 'ISO 14001 / LEED',
-      planDeAccionCorrectivo: 'Revisar sistemas de climatización fuera de horario laboral y verificar luminarias activas.',
-      fecha: 'Activa'
-    });
-  }
-
-  if (cumpleAgua) {
-    diagnosticos.push({
-      id: 'diag-agua',
-      tipo: 'AGUA',
-      severidad: 'CUMPLIMIENTO',
-      titulo: 'Cumplimiento Hídrico:',
-      mensaje: 'El consumo hídrico por estudiante se mantiene dentro de los límites óptimos del estándar LEED.',
+      titulo: 'Alerta de Prerrequisitos LEED:',
+      mensaje: 'Verificar inventario de inodoros/lavamanos y asegurar que el área de reciclaje física esté operativa al 100%.',
       normaReferencia: 'LEED para Escuelas',
-      planDeAccionCorrectivo: 'Continuar con el monitoreo preventivo de consumos quincenales.',
+      planDeAccionCorrectivo: 'Completar los registros técnicos de artefactos en el módulo de Datos del Plantel.',
       fecha: 'Activa'
     });
   }
 
-  const estatusLeed = (cumpleAgua && cumpleEnergia)
-    ? 'Cumplimiento Óptimo (LEED)'
-    : !cumpleEnergia
-    ? 'Alerta LEED'
-    : 'En Revisión (LEED)';
+  const estatusLeed = esEscuelaVerde ? 'Cumplimiento Óptimo' : 'En Proceso';
 
   const indicadores: IndicadoresGestionVerde = {
     consumoHidricoLPorAlumno,
@@ -309,7 +492,12 @@ export function ejecutarMotorInferencia(
     estatusLeed,
     temperaturaSensorC: sensor.temperaturaC,
     humedadSensorPct: sensor.humedadPct,
-    estadoSensor
+    estadoSensor,
+    estandarActivo,
+    evaluacionLeed,
+    evaluacionIso,
+    evaluacionEcoSchools,
+    huellaCarbono
   };
 
   return {
