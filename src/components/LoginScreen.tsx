@@ -2,125 +2,571 @@ import React, { useState } from 'react';
 import {
   Leaf,
   Lock,
+  Mail,
   User,
+  ShieldCheck,
+  GraduationCap,
   AlertCircle,
-  ArrowRight
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  UserPlus,
+  LogIn,
+  Sparkles,
+  TreePine,
+  Droplets,
+  Zap,
+  Recycle
 } from 'lucide-react';
-import { UsuarioSesion } from '../types';
+import { UsuarioSesion, RolUsuario } from '../types';
 
 interface LoginScreenProps {
   onLoginSuccess: (user: UsuarioSesion) => void;
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
-  const [usernameInput, setUsernameInput] = useState('');
-  const [passwordInput, setPasswordInput] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+interface StoredUser {
+  nombre: string;
+  email: string;
+  password: string;
+  rol: RolUsuario;
+}
 
-  const handleLogin = (e: React.FormEvent) => {
+// Cuentas predeterminadas del sistema para acceso rápido
+const DEFAULT_ACCOUNTS: StoredUser[] = [
+  {
+    nombre: 'Administrador del Plantel',
+    email: 'admin@escuela.edu',
+    password: '123',
+    rol: 'ADMINISTRADOR'
+  },
+  {
+    nombre: 'Prof. Carlos Mendoza (Docente)',
+    email: 'docente@escuela.edu',
+    password: '123',
+    rol: 'DOCENTE'
+  }
+];
+
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+
+  // Estado para Iniciar Sesión
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Estado para Registro
+  const [regNombre, setRegNombre] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
+  const [regRol, setRegRol] = useState<RolUsuario>('DOCENTE');
+  const [showRegPassword, setShowRegPassword] = useState(false);
+
+  // Mensajes de retroalimentación
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // Carga de usuarios registrados persistidos en localStorage
+  const getRegisteredUsers = (): StoredUser[] => {
+    try {
+      const stored = localStorage.getItem('eco_registered_users');
+      if (stored) {
+        const parsed: StoredUser[] = JSON.parse(stored);
+        return [...DEFAULT_ACCOUNTS, ...parsed];
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return DEFAULT_ACCOUNTS;
+  };
+
+  const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
+    setSuccessMessage('');
 
-    const trimmedUser = usernameInput.trim();
-    const trimmedPass = passwordInput.trim();
+    const emailTrimmed = loginEmail.trim().toLowerCase();
+    const passTrimmed = loginPassword.trim();
 
-    // Validación estricta de credenciales: Admin 123 / Superv 123
-    if (trimmedUser.toLowerCase() === 'admin' && trimmedPass === '123') {
-      const user: UsuarioSesion = {
-        id: 'usr-admin',
-        nombre: 'Administrador',
-        username: 'Admin',
-        rol: 'ADMINISTRADOR',
-        estandarSeleccionado: 'LEED'
-      };
-      onLoginSuccess(user);
-    } else if (trimmedUser.toLowerCase() === 'superv' && trimmedPass === '123') {
-      const user: UsuarioSesion = {
-        id: 'usr-superv',
-        nombre: 'Supervisor',
-        username: 'Superv',
-        rol: 'SUPERVISOR',
-        estandarSeleccionado: 'LEED'
-      };
-      onLoginSuccess(user);
+    if (!emailTrimmed || !passTrimmed) {
+      setErrorMessage('Por favor ingrese su correo electrónico y contraseña.');
+      return;
+    }
+
+    const allUsers = getRegisteredUsers();
+
+    // Búsqueda por correo exacto o alias convenientes ('admin', 'docente')
+    const userFound = allUsers.find((u) => {
+      const uEmail = u.email.toLowerCase();
+      const isEmailMatch = uEmail === emailTrimmed;
+      const isAliasMatch =
+        (emailTrimmed === 'admin' && u.rol === 'ADMINISTRADOR') ||
+        (emailTrimmed === 'docente' && u.rol === 'DOCENTE');
+      return (isEmailMatch || isAliasMatch) && u.password === passTrimmed;
+    });
+
+    if (userFound) {
+      setSuccessMessage(`¡Bienvenido al sistema, ${userFound.nombre}!`);
+      setTimeout(() => {
+        const sessionUser: UsuarioSesion = {
+          id: `usr-${Date.now()}`,
+          nombre: userFound.nombre,
+          email: userFound.email,
+          username: userFound.rol === 'ADMINISTRADOR' ? 'Admin' : 'Docente',
+          rol: userFound.rol,
+          estandarSeleccionado: 'LEED'
+        };
+        onLoginSuccess(sessionUser);
+      }, 500);
     } else {
-      setErrorMessage('Credenciales incorrectas. Verifique el usuario y la contraseña.');
+      setErrorMessage('Credenciales incorrectas. Verifique correo y contraseña, o regístrese como nuevo usuario.');
     }
   };
 
+  const handleRegisterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    const nombreTrimmed = regNombre.trim();
+    const emailTrimmed = regEmail.trim().toLowerCase();
+    const passTrimmed = regPassword.trim();
+    const confirmPassTrimmed = regConfirmPassword.trim();
+
+    if (!nombreTrimmed || !emailTrimmed || !passTrimmed) {
+      setErrorMessage('Por favor complete todos los campos obligatorios.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailTrimmed)) {
+      setErrorMessage('Por favor ingrese un correo electrónico válido (ejemplo: usuario@escuela.edu).');
+      return;
+    }
+
+    if (passTrimmed.length < 3) {
+      setErrorMessage('La contraseña debe tener al menos 3 caracteres.');
+      return;
+    }
+
+    if (passTrimmed !== confirmPassTrimmed) {
+      setErrorMessage('Las contraseñas no coinciden. Por favor revise nuevamente.');
+      return;
+    }
+
+    const allUsers = getRegisteredUsers();
+    const alreadyExists = allUsers.some((u) => u.email.toLowerCase() === emailTrimmed);
+
+    if (alreadyExists) {
+      setErrorMessage('Ya existe una cuenta con este correo. Puede ingresar directamente.');
+      return;
+    }
+
+    const newUser: StoredUser = {
+      nombre: nombreTrimmed,
+      email: emailTrimmed,
+      password: passTrimmed,
+      rol: regRol
+    };
+
+    try {
+      const existing = localStorage.getItem('eco_registered_users');
+      const list: StoredUser[] = existing ? JSON.parse(existing) : [];
+      list.push(newUser);
+      localStorage.setItem('eco_registered_users', JSON.stringify(list));
+    } catch (e) {
+      console.error(e);
+    }
+
+    setSuccessMessage('¡Cuenta creada exitosamente! Ingresando a la plataforma...');
+
+    setTimeout(() => {
+      const sessionUser: UsuarioSesion = {
+        id: `usr-${Date.now()}`,
+        nombre: newUser.nombre,
+        email: newUser.email,
+        username: newUser.rol === 'ADMINISTRADOR' ? 'Admin' : 'Docente',
+        rol: newUser.rol,
+        estandarSeleccionado: 'LEED'
+      };
+      onLoginSuccess(sessionUser);
+    }, 700);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#013324] via-[#014732] to-[#032b1f] flex items-center justify-center p-4 sm:p-6 font-sans">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl overflow-hidden border border-emerald-900/30 animate-in fade-in zoom-in-95 duration-200">
-        {/* Cabecera de la Marca */}
-        <div className="bg-[#014732] p-8 text-white text-center relative overflow-hidden">
-          <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-xl pointer-events-none" />
-          
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 mb-4 shadow-inner">
-            <Leaf className="w-9 h-9 fill-emerald-400 text-emerald-400" />
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500 selection:text-white flex flex-col justify-between">
+      {/* 1. NAVEGACIÓN SUPERIOR (Header) */}
+      <header className="sticky top-0 z-50 bg-[#021f15]/95 backdrop-blur-md border-b border-emerald-900/40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+          {/* Logo e Identidad */}
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-900/50">
+              <Leaf className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-black tracking-tight text-white">Escuela</span>
+                <span className="text-xl font-black text-emerald-400">Verde</span>
+              </div>
+            </div>
           </div>
 
-          <h1 className="text-2xl font-bold tracking-tight text-white font-sans">
-            Gestión Verde para Escuelas
-          </h1>
+          {/* Insignias de Estándares Internacionales */}
+          <div className="hidden sm:flex items-center gap-2">
+            <span className="px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-950/70 text-emerald-300 border border-emerald-500/30">
+              LEED v4.1
+            </span>
+            <span className="px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-950/70 text-emerald-300 border border-emerald-500/30">
+              ISO 14001
+            </span>
+            <span className="px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-950/70 text-emerald-300 border border-emerald-500/30">
+              Eco-Schools
+            </span>
+          </div>
         </div>
+      </header>
 
-        {/* Formulario de Inicio de Sesión */}
-        <div className="p-7 sm:p-8 space-y-6">
-          {errorMessage && (
-            <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3.5 rounded-xl text-xs flex items-center gap-2 animate-in shake">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
+      {/* 2. SECCIÓN PRINCIPAL (HERO + FORMULARIO DE ACCESO) */}
+      <main className="flex-1 relative py-12 lg:py-16 overflow-hidden bg-gradient-to-b from-[#021f15] via-[#03291d] to-[#021810] flex items-center">
+        {/* Efectos Ambientales de Fondo */}
+        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[140px] pointer-events-none" />
+        <div className="absolute bottom-10 right-10 w-[500px] h-[500px] bg-teal-500/10 rounded-full blur-[140px] pointer-events-none" />
+        <div
+          className="absolute inset-0 opacity-[0.03] pointer-events-none"
+          style={{
+            backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
+            backgroundSize: '28px 28px'
+          }}
+        />
 
-          <form onSubmit={handleLogin} className="space-y-4">
-            {/* Input Usuario */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Usuario
-              </label>
-              <div className="relative">
-                <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  type="text"
-                  placeholder="Usuario"
-                  value={usernameInput}
-                  onChange={(e) => setUsernameInput(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:border-emerald-600 focus:bg-white transition"
-                  required
-                />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
+            
+            {/* Columna Izquierda: Información Institucional */}
+            <div className="lg:col-span-7 space-y-6 text-left">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-500/30 text-emerald-300 text-xs font-semibold shadow-inner">
+                <Sparkles className="w-4 h-4 text-emerald-400" />
+                <span>Auditoría Ambiental y Certificación para Instituciones Educativas</span>
+              </div>
+
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white leading-tight tracking-tight">
+                Transformando Escuelas en Espacios Sostenibles con{' '}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-green-300">
+                  Rigor Científico
+                </span>
+              </h1>
+
+              <p className="text-base sm:text-lg text-emerald-100/80 leading-relaxed font-normal max-w-2xl">
+                Evalúa reducciones reales de agua, energía y gestión de desechos bajo estándares internacionales{' '}
+                <strong className="text-white font-semibold">LEED v4.1</strong>,{' '}
+                <strong className="text-white font-semibold">ISO 14001:2015</strong> y{' '}
+                <strong className="text-white font-semibold">Eco-Schools</strong>.
+              </p>
+
+              {/* Indicadores Clave de Impacto */}
+              <div className="grid grid-cols-3 gap-3 sm:gap-4 pt-2 max-w-xl">
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                  <div className="flex items-center gap-2 text-emerald-400 font-bold text-lg sm:text-xl">
+                    <Droplets className="w-5 h-5" />
+                    <span>≥20%</span>
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-slate-300 mt-1 font-medium leading-tight">
+                    Ahorro Hídrico estricto vs Línea Base
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                  <div className="flex items-center gap-2 text-amber-400 font-bold text-lg sm:text-xl">
+                    <Zap className="w-5 h-5" />
+                    <span>3% - 5%</span>
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-slate-300 mt-1 font-medium leading-tight">
+                    Meta de eficiencia energética continua
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                  <div className="flex items-center gap-2 text-teal-400 font-bold text-lg sm:text-xl">
+                    <Recycle className="w-5 h-5" />
+                    <span>≥50%</span>
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-slate-300 mt-1 font-medium leading-tight">
+                    Tasa de reciclaje y valorización de residuos
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* Input Contraseña */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Contraseña
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  type="password"
-                  placeholder="Contraseña"
-                  value={passwordInput}
-                  onChange={(e) => setPasswordInput(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3 py-2.5 text-sm text-slate-900 font-mono focus:outline-none focus:border-emerald-600 focus:bg-white transition"
-                  required
-                />
+            {/* Columna Derecha: Tarjeta Interactiva de Inicio de Sesión y Registro */}
+            <div className="lg:col-span-5">
+              <div className="bg-white rounded-3xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.6)] border border-emerald-100 overflow-hidden text-slate-800 transition-all">
+                
+                {/* Cabecera de la Tarjeta */}
+                <div className="bg-gradient-to-br from-[#014732] to-[#012f21] p-6 text-white text-center relative">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 mb-2.5 shadow-md">
+                    <TreePine className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <h2 className="text-xl font-bold text-white tracking-tight">
+                    Portal de Acceso al Plantel
+                  </h2>
+                  <p className="text-xs text-emerald-200/80 mt-1">
+                    Seleccione su rol o cree una cuenta institucional
+                  </p>
+
+                  {/* Pestañas: Iniciar Sesión vs Registrarse */}
+                  <div className="mt-5 bg-[#002217]/70 p-1 rounded-xl flex items-center border border-emerald-600/30">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('login');
+                        setErrorMessage('');
+                        setSuccessMessage('');
+                      }}
+                      className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        activeTab === 'login'
+                          ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                          : 'text-emerald-200 hover:text-white'
+                      }`}
+                    >
+                      <LogIn className="w-3.5 h-3.5" />
+                      Iniciar Sesión
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('register');
+                        setErrorMessage('');
+                        setSuccessMessage('');
+                      }}
+                      className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        activeTab === 'register'
+                          ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                          : 'text-emerald-200 hover:text-white'
+                      }`}
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      Registrar Usuario
+                    </button>
+                  </div>
+                </div>
+
+                {/* Mensajes de Alerta */}
+                {errorMessage && (
+                  <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-xs text-red-700 animate-fadeIn">
+                    <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                    <span>{errorMessage}</span>
+                  </div>
+                )}
+
+                {successMessage && (
+                  <div className="mx-6 mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs text-emerald-800 animate-fadeIn">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span className="font-semibold">{successMessage}</span>
+                  </div>
+                )}
+
+                {/* Formulario de INICIAR SESIÓN */}
+                {activeTab === 'login' ? (
+                  <form onSubmit={handleLoginSubmit} className="p-6 space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Correo Institucional
+                      </label>
+                      <div className="relative">
+                        <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={loginEmail}
+                          onChange={(e) => setLoginEmail(e.target.value)}
+                          placeholder="admin@escuela.edu o docente@escuela.edu"
+                          className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                          autoComplete="email"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          Contraseña
+                        </label>
+                      </div>
+                      <div className="relative">
+                        <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full pl-10 pr-10 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                          autoComplete="current-password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold rounded-xl shadow-lg shadow-emerald-700/20 transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+                    >
+                      <LogIn className="w-4 h-4" />
+                      <span>Ingresar a la Plataforma</span>
+                    </button>
+                  </form>
+                ) : (
+                  /* Formulario de REGISTRO */
+                  <form onSubmit={handleRegisterSubmit} className="p-6 space-y-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                        Nombre Completo
+                      </label>
+                      <div className="relative">
+                        <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={regNombre}
+                          onChange={(e) => setRegNombre(e.target.value)}
+                          placeholder="Ej: Lic. Elena Valenzuela"
+                          className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                        Correo Institucional
+                      </label>
+                      <div className="relative">
+                        <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="email"
+                          value={regEmail}
+                          onChange={(e) => setRegEmail(e.target.value)}
+                          placeholder="usuario@escuela.edu"
+                          className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                        Rol en la Institución
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setRegRol('DOCENTE')}
+                          className={`p-2 rounded-xl border text-left flex items-center gap-2 cursor-pointer transition-all ${
+                            regRol === 'DOCENTE'
+                              ? 'border-emerald-600 bg-emerald-50 text-emerald-950 font-bold'
+                              : 'border-slate-200 bg-slate-50 text-slate-600'
+                          }`}
+                        >
+                          <GraduationCap className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <div className="leading-tight">
+                            <div className="text-xs">Docente</div>
+                            <div className="text-[9px] text-slate-500">Carga lecturas</div>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setRegRol('ADMINISTRADOR')}
+                          className={`p-2 rounded-xl border text-left flex items-center gap-2 cursor-pointer transition-all ${
+                            regRol === 'ADMINISTRADOR'
+                              ? 'border-emerald-600 bg-emerald-50 text-emerald-950 font-bold'
+                              : 'border-slate-200 bg-slate-50 text-slate-600'
+                          }`}
+                        >
+                          <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <div className="leading-tight">
+                            <div className="text-xs">Administrador</div>
+                            <div className="text-[9px] text-slate-500">Control total</div>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Contraseña
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showRegPassword ? 'text' : 'password'}
+                            value={regPassword}
+                            onChange={(e) => setRegPassword(e.target.value)}
+                            placeholder="Clave"
+                            className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                          Confirmar
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showRegPassword ? 'text' : 'password'}
+                            value={regConfirmPassword}
+                            onChange={(e) => setRegConfirmPassword(e.target.value)}
+                            placeholder="Repetir"
+                            className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={showRegPassword}
+                          onChange={(e) => setShowRegPassword(e.target.checked)}
+                          className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <span>Mostrar contraseñas</span>
+                      </label>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-700/20 transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>Crear Cuenta y Acceder</span>
+                    </button>
+                  </form>
+                )}
               </div>
             </div>
 
-            {/* Botón de Ingreso */}
-            <button
-              type="submit"
-              className="w-full py-3 px-4 rounded-xl bg-[#016542] hover:bg-[#014e33] text-white font-semibold text-sm transition-all shadow-sm active:scale-[0.98] flex items-center justify-center gap-2 mt-4"
-            >
-              <span>Ingresar al Sistema</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </form>
+          </div>
         </div>
-      </div>
+      </main>
+
+      {/* 3. PIE DE PÁGINA (Footer Limpio) */}
+      <footer className="bg-[#02140e] text-slate-400 py-6 border-t border-emerald-950 text-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Leaf className="w-4 h-4 text-emerald-400" />
+            <span className="font-bold text-white">Escuela Verde</span>
+            <span className="text-slate-400">— Plataforma de Auditoría Ambiental Escolar</span>
+          </div>
+          <div className="text-center sm:text-right text-slate-400">
+            Normativas: LEED v4.1 O+M • ISO 14001:2015 • Eco-Schools
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };

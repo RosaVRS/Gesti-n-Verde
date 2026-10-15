@@ -31,7 +31,7 @@ import {
 import { Menu, Leaf } from 'lucide-react';
 
 export default function App() {
-  // Autenticación Real: Admin / 123 y Superv / 123
+  // Autenticación Real: Admin / 123 y Docente / 123
   const [currentUser, setCurrentUser] = useState<UsuarioSesion | null>(() => {
     try {
       const saved = sessionStorage.getItem('eco_user_session');
@@ -92,8 +92,8 @@ export default function App() {
       unidad: 'm³',
       periodo: '2026-06',
       fecha_registro: '2026-06-28T09:00:00Z',
-      registrado_por: 'Supervisor (Superv)',
-      cargo_responsable: 'SUPERVISOR',
+      registrado_por: 'Docente (Prof. Carlos)',
+      cargo_responsable: 'DOCENTE',
       costo_estimado: 2250.0
     },
     {
@@ -103,8 +103,8 @@ export default function App() {
       unidad: 'kWh',
       periodo: '2026-06',
       fecha_registro: '2026-06-28T09:30:00Z',
-      registrado_por: 'Supervisor (Superv)',
-      cargo_responsable: 'SUPERVISOR',
+      registrado_por: 'Docente (Prof. Carlos)',
+      cargo_responsable: 'DOCENTE',
       costo_estimado: 3067.2
     }
   ]);
@@ -212,7 +212,13 @@ export default function App() {
   };
 
   const handleDeleteConsumo = (id: string) => {
+    if (currentUser?.rol !== 'ADMINISTRADOR') return;
     setConsumos((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  const handleDeleteDesecho = (id: string) => {
+    if (currentUser?.rol !== 'ADMINISTRADOR') return;
+    setDesechos((prev) => prev.filter((d) => d.id !== id));
   };
 
   const handleUpdatePlantel = (newConfig: PlantelConfig) => {
@@ -308,9 +314,11 @@ export default function App() {
               plantel={plantel}
               consumos={consumos}
               desechos={desechos}
+              currentUser={currentUser}
               onAddConsumo={handleAddConsumo}
               onAddDesecho={handleAddDesecho}
               onDeleteConsumo={handleDeleteConsumo}
+              onDeleteDesecho={handleDeleteDesecho}
             />
           )}
 

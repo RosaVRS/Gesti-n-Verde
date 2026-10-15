@@ -1,14 +1,15 @@
 export type NavTab = 'dashboard' | 'cargar_lecturas' | 'datos_plantel';
 
-export type RolUsuario = 'ADMINISTRADOR' | 'SUPERVISOR';
+export type RolUsuario = 'ADMINISTRADOR' | 'DOCENTE';
 
 export type EstandarEvaluacion = 'LEED' | 'ISO_14001' | 'ECO_SCHOOLS';
 
 export interface UsuarioSesion {
   id: string;
-  nombre: string;       // "Administrador" o "Supervisor"
-  username: string;     // "Admin" o "Superv"
-  rol: RolUsuario;
+  nombre: string;       // "Administrador", "Docente" o nombre personalizado registrado
+  email: string;        // Correo electrónico
+  username?: string;    // Alias opcional (ej. "Admin", "Docente")
+  rol: RolUsuario;      // ADMINISTRADOR o DOCENTE
   estandarSeleccionado: EstandarEvaluacion;
 }
 
@@ -55,7 +56,7 @@ export interface ConsumoRecurso {
   periodo: string; // ej. "2026-07"
   fecha_registro: string;
   registrado_por: string;
-  cargo_responsable: 'ADMINISTRADOR' | 'SUPERVISOR';
+  cargo_responsable: 'ADMINISTRADOR' | 'DOCENTE';
   costo_estimado?: number;
   notas?: string;
 }

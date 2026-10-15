@@ -116,7 +116,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </nav>
         </div>
 
-        {/* Sidebar Footer: Perfil de Usuario Activo (Administrador o Supervisor) */}
+        {/* Sidebar Footer: Perfil de Usuario Activo (Administrador o Docente) */}
         <div className="p-4 border-t border-emerald-800/50 space-y-3 bg-[#013b29]">
           {currentUser && (
             <div className="space-y-2">

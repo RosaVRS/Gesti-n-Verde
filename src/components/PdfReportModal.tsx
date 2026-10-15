@@ -255,7 +255,7 @@ export const PdfReportModal: React.FC<PdfReportModalProps> = ({
             </div>
             <div>
               <div className="w-48 border-b border-slate-300 mx-auto mb-2"></div>
-              <p className="font-bold text-slate-800">Dirección y Supervisión</p>
+              <p className="font-bold text-slate-800">Dirección y Coordinación Docente</p>
               <p>{plantel.nombrePlantel}</p>
             </div>
           </div>
